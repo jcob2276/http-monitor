@@ -7,6 +7,10 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from collections import defaultdict
 from .models import MonitoringResult, MonitoredWebsite, Alert
+from django.http import HttpResponse
+
+def dashboard(request):
+    return HttpResponse("Hello from dashboard!")
 
 
 
@@ -43,7 +47,7 @@ def site_monitoring(request):
             uptime = recent.filter(is_up=True).count()
             uptime_percent = (uptime / total_checks * 100) if total_checks > 0 else 0
 
-    return render(request, 'monitor/site_monitoring.html', {
+    return render(request, 'monitor/base.html', {
         'results': results,
         'websites': websites,
         'selected_website': selected_website,
@@ -54,10 +58,12 @@ def site_monitoring(request):
     })
 
 
-from django.http import HttpResponse
+
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from .models import MonitoringResult
+
+
 
 def generate_report(request):
     response = HttpResponse(content_type='application/pdf')
@@ -132,9 +138,15 @@ def prometheus_metrics(request):
 
     return HttpResponse("\n".join(output), content_type="text/plain")
 
+def get_websites(request):
+    websites = MonitoredWebsite.objects.all().values("id", "name")
+    return JsonResponse(list(websites), safe=False)
+
+
 
 def chart_data(request):
     website_id = request.GET.get('website_id')
+    range_param = request.GET.get('range', '5m')
 
     if not website_id:
         return JsonResponse({'error': 'Brak website_id'}, status=400)
@@ -144,9 +156,20 @@ def chart_data(request):
     except MonitoredWebsite.DoesNotExist:
         return JsonResponse({'error': 'Nie znaleziono strony'}, status=404)
 
+    now = timezone.now()
+    if range_param == '5m':
+        since = now - timedelta(minutes=5)
+    elif range_param == '1h':
+        since = now - timedelta(hours=1)
+    elif range_param == '24h':
+        since = now - timedelta(hours=24)
+    else:
+        since = now - timedelta(minutes=5)
+
     results = MonitoringResult.objects.filter(
-        website=website
-    ).order_by('-timestamp')[:50][::-1]
+        website=website,
+        timestamp__gte=since
+    ).order_by('-timestamp')[:100][::-1]
 
     data = {
         'labels': [r.timestamp.strftime("%H:%M:%S") for r in results],

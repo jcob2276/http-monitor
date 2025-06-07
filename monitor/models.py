@@ -26,3 +26,9 @@ class Alert(models.Model):
 
     def __str__(self):
         return f"ALERT: {self.website.name} @ {self.created_at}"
+
+class UptimeCheck(models.Model):
+    website = models.ForeignKey(MonitoredWebsite, on_delete=models.CASCADE)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    response_time = models.FloatField()
+    is_up = models.BooleanField()

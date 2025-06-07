@@ -1,8 +1,11 @@
-from celery import shared_task
-from .utils import check_website
-from .models import MonitoredWebsite
+def hello_world():
+    print("👋 Hello from Django Q!")
 
-@shared_task
-def check_website_task(website_id):
-    website = MonitoredWebsite.objects.get(id=website_id)
-    check_website(website)
+
+def check_all_websites():
+    from .models import MonitoredWebsite  # ← importujemy dopiero tutaj!
+    from .utils import check_website
+
+    for site in MonitoredWebsite.objects.all():  # 👈 Nie używamy active=True
+        print(f"[{site.name}] Checking {site.url} ...")
+        check_website(site)

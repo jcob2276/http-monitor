@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Django System Monitorowania</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'style.css' %}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="container">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-16">
+                        <h1 class="dashboard-title">
+                            <i class="fas fa-chart-line"></i>
+                            Django System Monitorowania
+                        </h1>
+                        <span class="status--success">System Aktywny</span>
+                    </div>
+                    <div class="header-info">
+                        <div class="timestamp" id="currentTime"></div>
+                        <div class="flex items-center gap-8">
+                            <button class="btn btn--sm btn--outline" id="refreshBtn">
+                                <i class="fas fa-sync-alt"></i>
+                                Odśwież
+                            </button>
+                            <button class="btn btn--sm btn--secondary" id="settingsBtn">
+                                <i class="fas fa-cog"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+        {% block content %}
+        <!-- Main Content -->
+        <main class="dashboard-main">
+            <div class="container">
+                <!-- Key Metrics Row -->
+                <section class="metrics-grid">
+                    <div class="metric-card" id="activeServices">
+                        <div class="metric-icon">
+                            <i class="fas fa-server"></i>
+                        </div>
+                        <div class="metric-content">
+                            <h3 class="metric-value" id="activeServicesCount">5</h3>
+                            <p class="metric-label">Aktywne Usługi</p>
+                            <div class="metric-change positive">
+                                <i class="fas fa-arrow-up"></i>
+                                <span>2.5%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="metric-card" id="cpuUsage">
+                        <div class="metric-icon">
+                            <i class="fas fa-microchip"></i>
+                        </div>
+                        <div class="metric-content">
+                            <h3 class="metric-value" id="cpuUsageValue">65%</h3>
+                            <p class="metric-label">Użycie CPU</p>
+                            <div class="metric-change neutral">
+                                <i class="fas fa-minus"></i>
+                                <span>0.1%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="metric-card" id="memoryUsage">
+                        <div class="metric-icon">
+                            <i class="fas fa-memory"></i>
+                        </div>
+                        <div class="metric-content">
+                            <h3 class="metric-value" id="memoryUsageValue">78%</h3>
+                            <p class="metric-label">Użycie RAM</p>
+                            <div class="metric-change negative">
+                                <i class="fas fa-arrow-down"></i>
+                                <span>1.2%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="metric-card" id="systemUptime">
+                        <div class="metric-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="metric-content">
+                            <h3 class="metric-value" id="uptimeValue">99.8%</h3>
+                            <p class="metric-label">Uptime Systemu</p>
+                            <div class="metric-change positive">
+                                <i class="fas fa-arrow-up"></i>
+                                <span>0.2%</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Charts Section -->
+                <section class="charts-section">
+
+                    <div class="chart-controls">
+    <label for="siteSelector">Wybierz stronę:</label>
+    <select id="siteSelector" class="btn btn--sm btn--secondary">
+        <select id="siteSelector"></select>
+
+        <!-- Wypełnimy dynamicznie z JS -->
+    </select>
+</div>
+
+
+                    <div class="section-header">
+                        <h2>Wykresy w Czasie Rzeczywistym</h2>
+                        <div class="chart-controls">
+                            <button class="btn btn--sm btn--secondary chart-range-btn active" data-range="5m">5 min</button>
+                            <button class="btn btn--sm btn--secondary chart-range-btn" data-range="1h">1 godz</button>
+                            <button class="btn btn--sm btn--secondary chart-range-btn" data-range="24h">24 godz</button>
+                        </div>
+                    </div>
+                    
+                    <div class="charts-grid">
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <h3>Wykorzystanie Zasobów</h3>
+                                <span class="chart-status live">Na Żywo</span>
+                            </div>
+                            <canvas id="resourceChart" height="300"></canvas>
+                        </div>
+
+                        <div class="chart-container">
+                            <div class="chart-header">
+                                <h3>Czas Odpowiedzi</h3>
+                                <span class="chart-status live">Na Żywo</span>
+                            </div>
+                            <canvas id="responseTimeChart" height="300"></canvas>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Services Grid -->
+                <section class="services-section">
+                    <div class="section-header">
+                        <h2>Status Usług</h2>
+                        <div class="service-filters">
+                            <button class="btn btn--sm btn--secondary filter-btn active" data-filter="all">Wszystkie</button>
+                            <button class="btn btn--sm btn--secondary filter-btn" data-filter="healthy">Zdrowe</button>
+                            <button class="btn btn--sm btn--secondary filter-btn" data-filter="warning">Ostrzeżenia</button>
+                            <button class="btn btn--sm btn--secondary filter-btn" data-filter="critical">Krytyczne</button>
+                        </div>
+                    </div>
+
+                    <div class="services-grid" id="servicesGrid">
+                        <!-- Services will be populated by JavaScript -->
+                    </div>
+                </section>
+
+                <!-- Alerts Panel -->
+                <section class="alerts-section">
+                    <div class="section-header">
+                        <h2>Powiadomienia</h2>
+                        <button class="btn btn--sm btn--outline" id="clearAlerts">
+                            <i class="fas fa-trash"></i>
+                            Wyczyść
+                        </button>
+                    </div>
+
+                    <div class="alerts-container" id="alertsContainer">
+                        <!-- Alerts will be populated by JavaScript -->
+                    </div>
+                </section>
+
+                <!-- Performance Comparison -->
+                <section class="comparison-section">
+                    <div class="section-header">
+                        <h2>Porównanie Wydajności Async vs Sync</h2>
+                        <button class="btn btn--sm btn--secondary" id="toggleComparison">
+                            <i class="fas fa-chart-bar"></i>
+                            Pokaż Szczegóły
+                        </button>
+                    </div>
+                    
+                    <div class="comparison-content" id="comparisonContent">
+                        <div class="comparison-charts">
+                            <div class="comparison-chart">
+                                <img src="https://pplx-res.cloudinary.com/image/upload/v1748953877/pplx_code_interpreter/c3ea5897_bvooof.jpg" alt="Latency Comparison" class="comparison-image">
+                                <h4>Porównanie Opóźnień</h4>
+                                <p>Analiza czasów odpowiedzi między frameworkami synchronicznymi i asynchronicznymi</p>
+                            </div>
+                            <div class="comparison-chart">
+                                <img src="https://pplx-res.cloudinary.com/image/upload/v1748954018/pplx_code_interpreter/a99c0433_bfdjjx.jpg" alt="Features Impact" class="comparison-image">
+                                <h4>Funkcje o Największym Wpływie</h4>
+                                <p>Analiza funkcji monitorowania pod kątem efektu "wow" na prezentacji</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+        {% endblock %}
+        
+        <!-- Service Detail Modal -->
+        <div class="modal-overlay" id="serviceModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modalServiceName">Szczegóły Usługi</h3>
+                    <button class="modal-close" id="closeModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body" id="modalBody">
+                    <!-- Modal content will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+        <script src="{% static 'js/charts.js' %}"></script>
+<script src="{% static 'js/metrics.js' %}"></script>
+<script src="{% static 'js/main.js' %}"></script>
+
+
+
+    </body>
+</html>
