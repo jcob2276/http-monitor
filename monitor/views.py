@@ -8,6 +8,10 @@ from reportlab.pdfgen import canvas
 from collections import defaultdict
 from .models import MonitoringResult, MonitoredWebsite, Alert
 from django.http import HttpResponse
+from monitor.models import SSHMetric
+from django.http import JsonResponse
+from django.db.models import Avg
+from monitor.models import MonitoredWebsite, SSHMetric
 
 def dashboard(request):
     return HttpResponse("Hello from dashboard!")
@@ -161,6 +165,34 @@ def ssh_metrics_view(request):
     }
     return JsonResponse(data)
 
+
+
+from monitor.models import MonitoringResult
+
+def kpi_summary(request):
+    from django.utils import timezone
+    from datetime import timedelta
+
+    http_count = MonitoredWebsite.objects.count()
+    ssh_count = SSHMetric.objects.values('host').distinct().count()
+    active_services = http_count + ssh_count
+
+    recent_ssh = SSHMetric.objects.order_by('-timestamp')[:20]
+    cpu_avg = recent_ssh.aggregate(avg_cpu=Avg('cpu_percent'))['avg_cpu'] or 0.0
+    ram_avg = recent_ssh.aggregate(avg_ram=Avg('ram_used'))['avg_ram'] or 0
+
+    last_24h = timezone.now() - timedelta(hours=24)
+    uptime_checks = MonitoringResult.objects.filter(timestamp__gte=last_24h)
+    uptime_total = uptime_checks.count()
+    uptime_up = uptime_checks.filter(is_up=True).count()
+    uptime_avg = (uptime_up / uptime_total * 100) if uptime_total > 0 else 0.0
+
+    return JsonResponse({
+        "active_services": active_services,
+        "cpu_avg": round(cpu_avg, 1),
+        "ram_avg": int(ram_avg),
+        "uptime_avg": round(uptime_avg, 1),
+    })
 
 
 

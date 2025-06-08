@@ -27,15 +27,28 @@ class SSHMonitor:
         if not self.client:
             self.connect()
 
-        cpu = self.run_command("top -bn1 | grep 'Cpu(s)' | awk '{print $2 + $4}'")
-        ram_total = self.run_command("free -m | awk '/Mem:/ {print $2}'")
-        ram_used = self.run_command("free -m | awk '/Mem:/ {print $3}'")
+        # Zmienione: bardziej odporne komendy
+        cpu_cmd = "top -bn1 | grep '%Cpu' | awk '{print 100 - $8}'"
+        ram_total_cmd = "grep MemTotal /proc/meminfo | awk '{print int($2/1024)}'"
+        ram_used_cmd = "free -m | awk '/Mem:/ {print $3}'"
 
-        return {
-            'cpu_percent': float(cpu),
-            'ram_total': int(ram_total),
-            'ram_used': int(ram_used)
-        }
+        try:
+            cpu = self.run_command(cpu_cmd)
+            ram_total = self.run_command(ram_total_cmd)
+            ram_used = self.run_command(ram_used_cmd)
+
+            return {
+                'cpu_percent': float(cpu),
+                'ram_total': int(ram_total),
+                'ram_used': int(ram_used)
+            }
+        except Exception as e:
+            print("❌ Błąd podczas zbierania danych:", e)
+            return {
+                'cpu_percent': 0.0,
+                'ram_total': 0,
+                'ram_used': 0
+            }
 
     def close(self):
         if self.client:

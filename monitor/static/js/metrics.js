@@ -1,16 +1,16 @@
 let currentTimeRange = '5m';
 let selectedSite = null;
+let sshIntervalId = null;
 
 window.addEventListener("error", function (e) {
     console.error("🚨 JavaScript Error:", e.message, "at", e.filename + ":" + e.lineno);
 });
 
-// 🛰️ Ładowanie danych HTTP dla wykresu odpowiedzi
+// 📡 HTTP Chart
 function loadChartData(websiteId) {
     fetch(`/chart_data?website_id=${websiteId}&range=${currentTimeRange}`)
         .then(response => response.json())
         .then(data => {
-            console.log("📈 Załadowano dane do wykresu:", data);
             if (window.responseChart) {
                 window.responseChart.data.labels = data.labels;
                 window.responseChart.data.datasets[0].data = data.response_times;
@@ -20,23 +20,21 @@ function loadChartData(websiteId) {
         });
 }
 
-// 🧠 Ładowanie danych zdalnych (CPU, RAM) przez SSH
+// 🧠 SSH Chart
 function loadSSHChart(host) {
-    fetch(`/api/ssh_metrics/?host=${host}`)
+    fetch(`/api/ssh_metrics/?host=${host}&range=${currentTimeRange}`)
         .then(response => response.json())
         .then(data => {
             const canvas = document.getElementById('resourceChart');
             if (!canvas) {
-                console.warn("⚠️ Nie znaleziono <canvas id='resourceChart'> w DOM – wykres SSH nie zostanie załadowany.");
+                console.warn("⚠️ <canvas id='resourceChart'> not found");
                 return;
             }
             const ctx = canvas.getContext('2d');
-            console.log("🎨 Rysuję wykres SSH na #resourceChart", data);
 
-           if (window.resourceChart && typeof window.resourceChart.destroy === 'function') {
-    window.resourceChart.destroy();
-}
-
+            if (window.resourceChart && typeof window.resourceChart.destroy === 'function') {
+                window.resourceChart.destroy();
+            }
 
             window.resourceChart = new Chart(ctx, {
                 type: 'line',
@@ -70,7 +68,17 @@ function loadSSHChart(host) {
         });
 }
 
-// 🔄 Resetuje wykres odpowiedzi
+// 🔁 Interval refresher (SSH, tylko dla 5m)
+function startSSHRefresh(host) {
+    clearInterval(sshIntervalId);
+    if (currentTimeRange === "5m") {
+        sshIntervalId = setInterval(() => {
+            loadSSHChart(host);
+        }, 10000); // co 10s
+    }
+}
+
+// 🔄 Reset HTTP Chart
 function resetChart() {
     if (window.responseChart) {
         window.responseChart.data.labels = ["Oczekiwanie..."];
@@ -79,12 +87,10 @@ function resetChart() {
     }
 }
 
-// 🔌 WebSocket do realtime metryk
+// 🔌 WebSocket (HTTP realtime only)
 const ws = new WebSocket("ws://" + window.location.host + "/ws/metrics/");
 ws.onmessage = function (event) {
     const data = JSON.parse(event.data);
-    console.log("📡 Realtime dane z WebSocket:", data);
-
     if (selectedSite && data.website_id !== selectedSite) return;
     if (currentTimeRange !== "5m") return;
 
@@ -100,47 +106,65 @@ ws.onmessage = function (event) {
     }
 };
 
-// 📦 Główna inicjalizacja po załadowaniu DOM
+// 📊 KPI Loader
+let previousUptime = null;
+
+function updateKPI() {
+    fetch("/api/kpi/")
+        .then(res => res.json())
+        .then(data => {
+            // 🔢 Aktywne Usługi
+            document.getElementById("activeServicesCount").textContent = data.active_services;
+
+            // 🧠 CPU
+            document.getElementById("cpuUsageValue").textContent = `${data.cpu_avg}%`;
+
+            // 📦 RAM
+            document.getElementById("memoryUsageValue").textContent = `${data.ram_avg} MB`;
+
+            // ⏱️ UPTIME
+            const uptimeEl = document.getElementById("uptimeValue");
+            if (uptimeEl) {
+                uptimeEl.textContent = `${data.uptime_avg}%`;
+            }
+        })
+        .catch(err => console.error("❌ KPI error:", err));
+}
+
+
+// 🚀 Init All
 window.addEventListener("DOMContentLoaded", () => {
-    // Obsługa selektora HTTP
-    const selector = document.getElementById("siteSelector");
-    if (!selector) {
-        console.warn("⚠️ Brak elementu #siteSelector w DOM-ie");
-    } else {
+    const siteSelector = document.getElementById("siteSelector");
+    const sshSelector = document.getElementById("sshSelector");
+
+    // Init HTTP
+    if (siteSelector) {
         fetch("/api/sites/")
             .then(response => response.json())
             .then(sites => {
-                if (sites.length === 0) {
-                    console.warn("❌ Brak stron do wyboru");
-                    return;
-                }
-
+                if (sites.length === 0) return;
                 sites.forEach(site => {
                     const option = document.createElement("option");
                     option.value = site.id;
                     option.textContent = site.name;
-                    selector.appendChild(option);
+                    siteSelector.appendChild(option);
                 });
 
                 selectedSite = sites[0].id;
-                selector.value = selectedSite;
+                siteSelector.value = selectedSite;
                 resetChart();
                 loadChartData(selectedSite);
             });
 
-        selector.addEventListener("change", (e) => {
+        siteSelector.addEventListener("change", (e) => {
             selectedSite = parseInt(e.target.value);
-            console.log("🌐 Wybrana strona:", selectedSite);
             resetChart();
             loadChartData(selectedSite);
         });
     }
 
-    // Obsługa selektora SSH
-    const sshSelector = document.getElementById("sshSelector");
-    if (!sshSelector) {
-        console.warn("⚠️ Nie znaleziono #sshSelector w DOM");
-    } else {
+    // Init SSH
+    if (sshSelector) {
         const hosts = ["10.10.12.13"];
         hosts.forEach(host => {
             const option = document.createElement("option");
@@ -151,27 +175,38 @@ window.addEventListener("DOMContentLoaded", () => {
 
         const defaultHost = hosts[0];
         sshSelector.value = defaultHost;
-        console.log("🔌 Domyślnie ładujemy wykres SSH dla:", defaultHost);
         loadSSHChart(defaultHost);
+        startSSHRefresh(defaultHost);
 
         sshSelector.addEventListener("change", (e) => {
-            const selectedHost = e.target.value;
-            console.log("🔄 Zmieniono host SSH na:", selectedHost);
-            loadSSHChart(selectedHost);
+            const host = e.target.value;
+            loadSSHChart(host);
+            startSSHRefresh(host);
         });
     }
-});
 
-// 🕒 Obsługa przycisków zakresu czasu
-document.querySelectorAll(".chart-range-btn").forEach(btn => {
-    btn.addEventListener("click", function () {
-        document.querySelectorAll(".chart-range-btn").forEach(b => b.classList.remove("active"));
-        this.classList.add("active");
+    // ⏱️ Zakresy czasu
+    document.querySelectorAll(".chart-range-btn").forEach(btn => {
+        btn.addEventListener("click", function () {
+            document.querySelectorAll(".chart-range-btn").forEach(b => b.classList.remove("active"));
+            this.classList.add("active");
 
-        currentTimeRange = this.dataset.range;
-        if (selectedSite) {
-            resetChart();
-            loadChartData(selectedSite);
-        }
+            currentTimeRange = this.dataset.range;
+
+            if (selectedSite) {
+                resetChart();
+                loadChartData(selectedSite);
+            }
+
+            const sshHost = sshSelector?.value;
+            if (sshHost) {
+                loadSSHChart(sshHost);
+                startSSHRefresh(sshHost);
+            }
+        });
     });
+
+    // 🧠 KPI start
+    updateKPI();
+    setInterval(updateKPI, 15000);
 });
