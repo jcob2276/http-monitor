@@ -6,5 +6,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('monitor.urls')),
     path('', views.dashboard, name='dashboard'),
-     path('', include('monitor.urls')),
+    path('', include('monitor.urls')),
+    path("api/ssh_metrics/", views.ssh_metrics_view, name="ssh_metrics")
+
 ]

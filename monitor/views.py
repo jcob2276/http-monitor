@@ -142,6 +142,26 @@ def get_websites(request):
     websites = MonitoredWebsite.objects.all().values("id", "name")
     return JsonResponse(list(websites), safe=False)
 
+# views.py
+from django.http import JsonResponse
+from .models import SSHMetric
+
+def ssh_metrics_view(request):
+    host = request.GET.get("host", None)
+    if not host:
+        return JsonResponse({"error": "No host provided"}, status=400)
+
+    metrics = SSHMetric.objects.filter(host=host).order_by('-timestamp')[:30][::-1]
+
+    data = {
+        "timestamps": [m.timestamp.strftime("%H:%M:%S") for m in metrics],
+        "cpu": [m.cpu_percent for m in metrics],
+        "ram_used": [m.ram_used for m in metrics],
+        "ram_total": [m.ram_total for m in metrics],
+    }
+    return JsonResponse(data)
+
+
 
 
 def chart_data(request):

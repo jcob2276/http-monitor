@@ -110,6 +110,8 @@
 
         <!-- Wypełnimy dynamicznie z JS -->
     </select>
+    <label for="sshSelector">Wybierz host SSH:</label>
+<select id="sshSelector" class="btn btn--sm btn--secondary"></select>
 </div>
 
 
@@ -121,7 +123,14 @@
                             <button class="btn btn--sm btn--secondary chart-range-btn" data-range="24h">24 godz</button>
                         </div>
                     </div>
-                    
+                    <div class="chart-controls">
+  
+
+    <!-- Wypełniamy dynamicznie w JS -->
+  </select>
+</div>
+
+
                     <div class="charts-grid">
                         <div class="chart-container">
                             <div class="chart-header">
@@ -217,9 +226,12 @@
             </div>
         </div>
     </div>
-        <script src="{% static 'js/charts.js' %}"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{% static 'js/charts.js' %}"></script>
 <script src="{% static 'js/metrics.js' %}"></script>
 <script src="{% static 'js/main.js' %}"></script>
+<script type="module" src="{% static 'js/main.js' %}"></script>
+
 
 
 

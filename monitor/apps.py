@@ -11,3 +11,5 @@ class MonitorConfig(AppConfig):
             start_task()
         except Exception as e:
             print("⛔️ Błąd inicjalizacji zadania SSH:", e)
+
+
