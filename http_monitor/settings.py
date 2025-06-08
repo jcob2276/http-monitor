@@ -46,7 +46,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django_q',
  
-    'monitor',  
+    'monitor.apps.MonitorConfig',
+ 
     'channels',
 ]
 

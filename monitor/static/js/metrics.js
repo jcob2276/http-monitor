@@ -8,10 +8,15 @@ function loadChartData(websiteId) {
             if (window.responseChart) {
                 window.responseChart.data.labels = data.labels;
                 window.responseChart.data.datasets[0].data = data.response_times;
+
+                // ⬇⬇⬇ DODAJ TO TUTAJ
+                window.responseChart.statusCodes = data.status_codes;
+
                 window.responseChart.update();
             }
         });
 }
+
 
 
 // 🔄 Reset wykresu do placeholdera
@@ -80,3 +85,31 @@ window.addEventListener("DOMContentLoaded", () => {
         loadChartData(selectedSite); // 🔁 wczytaj dane
     });
 });
+
+
+// 🔌 Połączenie WebSocket
+const ws = new WebSocket("ws://" + window.location.host + "/ws/metrics/");
+
+// 🎯 Obsługa wiadomości z backendu
+ws.onmessage = function (event) {
+    const data = JSON.parse(event.data);
+    console.log("📡 Realtime dane z WebSocket:", data);
+
+    // Filtruj dane dla wybranej strony
+    if (selectedSite && data.website_id !== selectedSite) return;
+
+    // 🔁 Jeśli zakres to '5m' – tylko wtedy realtime
+    if (currentTimeRange !== "5m") return;
+
+    if (window.responseChart) {
+        // ⛔️ Limitujemy do ostatnich 50 punktów
+        if (window.responseChart.data.labels.length > 50) {
+            window.responseChart.data.labels.shift();
+            window.responseChart.data.datasets[0].data.shift();
+        }
+
+        window.responseChart.data.labels.push(data.timestamp);
+        window.responseChart.data.datasets[0].data.push(data.response_time);
+        window.responseChart.update();
+    }
+};

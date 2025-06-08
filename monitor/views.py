@@ -172,10 +172,12 @@ def chart_data(request):
     ).order_by('-timestamp')[:100][::-1]
 
     data = {
-        'labels': [r.timestamp.strftime("%H:%M:%S") for r in results],
-        'response_times': [round(r.response_time or 0, 2) for r in results],
-        'label': website.url
-    }
+    'labels': [r.timestamp.strftime("%H:%M:%S") for r in results],
+    'response_times': [round(r.response_time or 0, 2) for r in results],
+    'status_codes': [r.status_code or 0 for r in results],  # 👈 DODAJ TO
+    'label': website.url
+}
+
 
     return JsonResponse(data)
 

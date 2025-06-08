@@ -32,3 +32,11 @@ class UptimeCheck(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
     response_time = models.FloatField()
     is_up = models.BooleanField()
+    
+class SSHMetric(models.Model):
+    host = models.CharField(max_length=100)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    cpu_percent = models.FloatField()
+    ram_used = models.IntegerField()
+    ram_total = models.IntegerField()
+

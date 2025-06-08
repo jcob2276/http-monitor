@@ -1,4 +1,5 @@
 const ctx = document.getElementById('responseTimeChart').getContext('2d');
+
 window.responseChart = new Chart(ctx, {
     type: 'line',
     data: {
@@ -13,9 +14,32 @@ window.responseChart = new Chart(ctx, {
     },
     options: {
         responsive: true,
-        maintainAspectRatio: false, // ← TO TU!
+        maintainAspectRatio: false,
         scales: {
-            y: { beginAtZero: true }
+            y: {
+                beginAtZero: true,
+                title: {
+                    display: true,
+                    text: 'ms'
+                }
+            },
+            x: {
+                title: {
+                    display: true,
+                    text: 'Czas'
+                }
+            }
+        },
+        plugins: {
+            tooltip: {
+                callbacks: {
+                    label: function (context) {
+                        const statusCodes = window.responseChart.statusCodes || [];
+                        const code = statusCodes[context.dataIndex] || 'brak';
+                        return `Czas: ${context.raw} ms (HTTP ${code})`;
+                    }
+                }
+            }
         }
     }
 });
