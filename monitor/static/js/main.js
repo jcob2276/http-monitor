@@ -1,24 +1,43 @@
-import { initializeCharts, updateChartTimeRange, updateCharts, updateResponseTimeChart } from './charts.js';
+import {
+    initializeCharts,
+    updateSSHChart
+} from './charts.js';
+
 import { renderServices } from './services.js';
 import { renderAlerts } from './alerts.js';
 import { updateCpu, updateRam, updateDisk } from './metrics.js';
-import { setupEventListeners, updateCurrentTime } from './dom.js';
+// ❌ usunięto import z dom.js
 
 document.addEventListener('DOMContentLoaded', function () {
-    updateCurrentTime();
-    setInterval(updateCurrentTime, 1000);
+    const sshSelector = document.getElementById('sshSelector');
+    
+    window.selectedHost = sshSelector.value;
 
-    renderServices();
-    renderAlerts();
-    initializeCharts();
-    setupEventListeners();
+    sshSelector.addEventListener('change', function () {
+        window.selectedHost = this.value;
+    });
 
-    // Podłącz WebSocket
-    const socket = new WebSocket("ws://" + window.location.host + "/ws/metrics/");
-    socket.onmessage = function (event) {
-        const data = JSON.parse(event.data);
-        updateCpu(data.cpu);
-        updateRam(data.ram);
-        updateDisk(data.disk);
+    const sshSocket = new WebSocket(`ws://${window.location.host}/ws/ssh-metrics/`);
+
+    sshSocket.onopen = function () {
+        console.log("✅ WebSocket SSH connected");
     };
+
+    sshSocket.onmessage = function (e) {
+        const data = JSON.parse(e.data);
+        if (data.host === window.selectedHost) {
+            console.log("🎯 SSH dane:", data);
+            updateSSHChart(data);
+        }
+    };
+
+    sshSocket.onerror = function (e) {
+        console.error("❌ SSH WebSocket error:", e);
+    };
+
+    sshSocket.onclose = function () {
+        console.warn("⚠️ SSH WebSocket closed");
+    };
+
+    initializeCharts();
 });

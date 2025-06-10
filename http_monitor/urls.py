@@ -1,12 +1,8 @@
+# http_monitor/urls.py
 from django.contrib import admin
-from django.urls import path, include
-from monitor import views
+from django.urls import path, include  # ← NIE ZAPOMNIJ O TYM
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('monitor.urls')),
-    path('', views.dashboard, name='dashboard'),
-    path('', include('monitor.urls')),
-    path("api/ssh_metrics/", views.ssh_metrics_view, name="ssh_metrics")
-
 ]

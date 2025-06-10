@@ -16,9 +16,6 @@ import os
 # Definiowanie BASE_DIR, aby odnosiło się do katalogu głównego projektu
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Testowanie ścieżki
-print(os.path.join(BASE_DIR, 'templates'))  # To wyświetli ścieżkę do folderu templates w konsoli
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -30,7 +27,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-j3xt&9cn--5xwi&)h+s9lqhvhyads_mqtie=-$^86)l%kbk4_v'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = True ############################################################################# WAŻNE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
 
 ALLOWED_HOSTS = []
 
@@ -45,9 +42,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_q',
- 
+    'rest_framework',
     'monitor.apps.MonitorConfig',
- 
     'channels',
 ]
 
@@ -155,9 +151,20 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 Q_CLUSTER = {
     'name': 'http-monitor',
     'workers': 4,
-    'timeout': 30,
-    'retry': 60,  # retry > timeout!
+    'recycle': 500,
+    'timeout': 60,
+    'retry': 120,
     'queue_limit': 50,
     'bulk': 10,
-    'orm': 'default',
+    'redis': {
+        'host': '127.0.0.1',
+        'port': 6379,
+        'db': 0,
+        'password': None,
+    },
+    'label': 'Django Q Cluster',
+    'catch_up': False,
 }
+
+DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/...."
+

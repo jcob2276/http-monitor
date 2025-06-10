@@ -1,5 +1,11 @@
-import paramiko
+# monitor/ssh_metrics.py
 
+import paramiko
+from .models import SSHHost, SSHMetric
+
+# -----------------------------
+# Klasa do monitorowania przez SSH
+# -----------------------------
 class SSHMonitor:
     def __init__(self, host, username, password=None, port=22, key_path=None):
         self.host = host
@@ -15,41 +21,76 @@ class SSHMonitor:
 
         if self.key_path:
             pkey = paramiko.RSAKey.from_private_key_file(self.key_path)
-            self.client.connect(hostname=self.host, port=self.port, username=self.username, pkey=pkey)
+            self.client.connect(
+                hostname=self.host,
+                port=self.port,
+                username=self.username,
+                pkey=pkey
+            )
         else:
-            self.client.connect(hostname=self.host, port=self.port, username=self.username, password=self.password)
+            self.client.connect(
+                hostname=self.host,
+                port=self.port,
+                username=self.username,
+                password=self.password
+            )
 
     def run_command(self, command):
         stdin, stdout, stderr = self.client.exec_command(command)
         return stdout.read().decode().strip()
 
     def collect_metrics(self):
+        """
+        Zbiera CPU i RAM zdalnej maszyny.
+        """
         if not self.client:
             self.connect()
 
-        # Zmienione: bardziej odporne komendy
-        cpu_cmd = "top -bn1 | grep '%Cpu' | awk '{print 100 - $8}'"
-        ram_total_cmd = "grep MemTotal /proc/meminfo | awk '{print int($2/1024)}'"
-        ram_used_cmd = "free -m | awk '/Mem:/ {print $3}'"
+        commands = {
+            'cpu_percent': "top -bn1 | grep '%Cpu' | awk '{print 100 - $8}'",
+            'ram_total': "grep MemTotal /proc/meminfo | awk '{print int($2/1024)}'",
+            'ram_used': "free -m | awk '/Mem:/ {print $3}'",
+        }
 
         try:
-            cpu = self.run_command(cpu_cmd)
-            ram_total = self.run_command(ram_total_cmd)
-            ram_used = self.run_command(ram_used_cmd)
-
             return {
-                'cpu_percent': float(cpu),
-                'ram_total': int(ram_total),
-                'ram_used': int(ram_used)
+                key: float(self.run_command(cmd)) if "cpu" in key else int(self.run_command(cmd))
+                for key, cmd in commands.items()
             }
         except Exception as e:
-            print("❌ Błąd podczas zbierania danych:", e)
-            return {
-                'cpu_percent': 0.0,
-                'ram_total': 0,
-                'ram_used': 0
-            }
+            print(f"❌ Błąd zbierania metryk z {self.host}: {e}")
+            return {'cpu_percent': 0.0, 'ram_total': 0, 'ram_used': 0}
 
     def close(self):
         if self.client:
             self.client.close()
+
+# -----------------------------
+# Funkcja cyklicznego zbierania metryk
+# -----------------------------
+def collect_and_store_metrics():
+    """
+    Iteruje po wszystkich hostach SSH i zapisuje metryki do bazy.
+    """
+    for host_obj in SSHHost.objects.all():
+        ssh = SSHMonitor(
+            host=host_obj.hostname,
+            username=host_obj.username,
+            password=host_obj.password  # albo key_path jeśli używasz klucza
+        )
+
+        try:
+            metrics = ssh.collect_metrics()
+            SSHMetric.objects.create(
+                host=host_obj,
+                cpu_percent=metrics['cpu_percent'],
+                ram_used=metrics['ram_used'],
+                ram_total=metrics['ram_total']
+            )
+            print(f"✅ Metryki zapisane dla {host_obj.hostname}")
+
+        except Exception as e:
+            print(f"❌ Błąd – host: {host_obj.hostname} → {e}")
+
+        finally:
+            ssh.close()

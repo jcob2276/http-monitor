@@ -1,5 +1,8 @@
 import requests
 from .models import MonitoringResult, Alert
+from .discord_alerts import send_discord_alert
+send_discord_alert(f"Status usługi {website.name} zmienił się na {new_status.upper()}")
+
 
 def check_website(website):
     try:

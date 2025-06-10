@@ -98,18 +98,19 @@
                 </section>
 
                 <!-- Charts Section -->
-                <section class="charts-section">
+<section class="charts-section">
+    <div class="chart-controls">
+        <label for="siteSelector">Wybierz stronę:</label>
+        <select id="siteSelector" class="btn btn--sm btn--secondary">
+            <!-- Wypełniane dynamicznie z JS -->
+        </select>
 
-                    <div class="chart-controls">
-    <label for="siteSelector">Wybierz stronę:</label>
-    <select id="siteSelector" class="btn btn--sm btn--secondary">
-        <select id="siteSelector"></select>
+        <label for="sshSelector">Wybierz host SSH:</label>
+        <select id="sshSelector" class="btn btn--sm btn--secondary">
+            <!-- Wypełniane dynamicznie z JS -->
+        </select>
+    </div>
 
-        <!-- Wypełnimy dynamicznie z JS -->
-    </select>
-    <label for="sshSelector">Wybierz host SSH:</label>
-<select id="sshSelector" class="btn btn--sm btn--secondary"></select>
-</div>
 
 
                     <div class="section-header">
@@ -178,32 +179,6 @@
                         <!-- Alerts will be populated by JavaScript -->
                     </div>
                 </section>
-
-                <!-- Performance Comparison -->
-                <section class="comparison-section">
-                    <div class="section-header">
-                        <h2>Porównanie Wydajności Async vs Sync</h2>
-                        <button class="btn btn--sm btn--secondary" id="toggleComparison">
-                            <i class="fas fa-chart-bar"></i>
-                            Pokaż Szczegóły
-                        </button>
-                    </div>
-                    
-                    <div class="comparison-content" id="comparisonContent">
-                        <div class="comparison-charts">
-                            <div class="comparison-chart">
-                                <img src="https://pplx-res.cloudinary.com/image/upload/v1748953877/pplx_code_interpreter/c3ea5897_bvooof.jpg" alt="Latency Comparison" class="comparison-image">
-                                <h4>Porównanie Opóźnień</h4>
-                                <p>Analiza czasów odpowiedzi między frameworkami synchronicznymi i asynchronicznymi</p>
-                            </div>
-                            <div class="comparison-chart">
-                                <img src="https://pplx-res.cloudinary.com/image/upload/v1748954018/pplx_code_interpreter/a99c0433_bfdjjx.jpg" alt="Features Impact" class="comparison-image">
-                                <h4>Funkcje o Największym Wpływie</h4>
-                                <p>Analiza funkcji monitorowania pod kątem efektu "wow" na prezentacji</p>
-                            </div>
-                        </div>
-                    </div>
-                </section>
             </div>
         </main>
         {% endblock %}
@@ -227,10 +202,39 @@
 <script src="{% static 'js/charts.js' %}"></script>
 <script src="{% static 'js/metrics.js' %}"></script>
 <script src="{% static 'js/main.js' %}"></script>
-<script type="module" src="{% static 'js/main.js' %}"></script>
 
 
 
+<script>
+function fetchAlerts() {
+    fetch("/api/alerts/")
+        .then(response => response.json())
+        .then(alerts => {
+            const container = document.getElementById("alertsContainer");
+            if (!container) return;
+
+            container.innerHTML = ""; // wyczyść stare
+            alerts.forEach(alert => {
+                const div = document.createElement("div");
+                div.classList.add("alert-card");
+                div.innerHTML = `
+                    <div class="alert-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                    <div class="alert-content">
+                        <p class="alert-message">${alert.message}</p>
+                        <span class="alert-timestamp">${new Date(alert.created_at).toLocaleString()}</span>
+
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }).catch(err => {
+            console.error("❌ Błąd pobierania alertów:", err);
+        });
+}
+
+setInterval(fetchAlerts, 10000);
+window.addEventListener("DOMContentLoaded", fetchAlerts);
+</script>
 
     </body>
 </html>
