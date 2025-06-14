@@ -57,6 +57,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = 'http_monitor.urls'
@@ -125,7 +126,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Europe/Warsaw'
 
 USE_I18N = True
 
@@ -141,7 +142,7 @@ STATIC_URL = '/static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 STATICFILES_DIRS = [
-    BASE_DIR / 'monitor' / 'static',
+    BASE_DIR / 'monitor' / 'static',  # <- tam masz style i js
 ]
 
 
@@ -164,7 +165,21 @@ Q_CLUSTER = {
     },
     'label': 'Django Q Cluster',
     'catch_up': False,
+    
+    # ⏱️ Automatyczne uruchamianie sprawdzania HTTP co 1 minutę
+    'schedule': [
+        {
+            'func': 'monitor.tasks.check_all_websites',
+            'schedule_type': 'I',  # Interval
+            'minutes': 1,
+            'name': 'HTTP Monitor Schedule'
+        }
+    ]
 }
 
-DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/...."
 
+STATIC_ROOT = BASE_DIR / 'staticfiles'  # <- miejsce do collectstatic
+
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

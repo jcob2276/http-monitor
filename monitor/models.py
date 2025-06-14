@@ -32,8 +32,6 @@ class Alert(models.Model):
     def __str__(self):
         return f"ALERT: {self.website.name} @ {self.created_at}"
 
-# class UptimeCheck(...)  ❌ usuń jeśli nie jest używany
-
 
 # ============================
 # 💻 SSH Monitoring

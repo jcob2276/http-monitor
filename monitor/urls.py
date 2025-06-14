@@ -14,4 +14,6 @@ urlpatterns = [
     path("api/statuses/", views.service_statuses, name="service_statuses"),
     path("api/alerts/", views.alerts_api, name="alerts_api"),
     path("api/ssh-hosts/", views.ssh_hosts_api, name="ssh_hosts_api"),
+    path("api/ssh-chart-data/", views.ssh_chart_data, name="ssh_chart_data"),
+    path("api/ssh-metrics/", views.ssh_metrics_api, name="ssh_metrics_api"),
             ]

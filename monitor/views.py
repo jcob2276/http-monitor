@@ -15,9 +15,16 @@ from reportlab.pdfgen import canvas
 
 from django_q.tasks import async_task
 
+from .models import SSHHost
+
 from .models import (
     MonitoringResult, MonitoredWebsite, Alert, Notification, SSHMetric, SSHHost
 )
+
+@api_view(['GET'])
+def ssh_hosts_api(request):
+    hosts = SSHHost.objects.all().values('id', 'hostname')
+    return Response(list(hosts))
 
 
 # --------------------------
@@ -127,18 +134,91 @@ def get_websites(request):
     return JsonResponse(list(websites), safe=False)
 
 
+def ssh_chart_data(request):
+    host = request.GET.get('host')
+    time_range = request.GET.get('range')
+
+    now = timezone.now()
+
+    if time_range == '5m':
+        start_time = now - timedelta(minutes=5)
+    elif time_range == '1h':
+        start_time = now - timedelta(hours=1)
+    elif time_range == '24h':
+        start_time = now - timedelta(hours=24)
+    else:
+        return JsonResponse({'error': 'Niepoprawny zakres czasu'}, status=400)
+
+    queryset = SSHMetric.objects.filter(host__hostname=host, timestamp__gte=start_time).order_by('timestamp')
+
+    labels = [m.timestamp.strftime('%H:%M:%S') for m in queryset]
+    cpu = [m.cpu_percent for m in queryset]
+    ram = [(m.ram_used / m.ram_total * 100) for m in queryset]
+
+    return JsonResponse({
+        'labels': labels,
+        'cpu': cpu,
+        'ram': ram
+    })
+
 # --------------------------
 # API: KPI, STATUSY, ALERTY
 # --------------------------
 
+from django.http import JsonResponse
+from django.utils.timezone import now, timedelta
+from .models import SSHMetric
+
+def ssh_metrics_api(request):
+    hostname = request.GET.get('hostname')
+    time_range = request.GET.get('range', '5')
+
+    if not hostname:
+        return JsonResponse({'error': 'Brak hosta'}, status=400)
+
+    now_time = now()
+    if time_range == '5m':
+        since = now_time - timedelta(minutes=5)
+    elif time_range == '1h':
+        since = now_time - timedelta(hours=1)
+    else:
+        since = now_time - timedelta(hours=24)
+
+    data = SSHMetric.objects.filter(
+        host__hostname=hostname,
+        timestamp__gte=since
+    ).order_by('timestamp')
+
+    response_data = [
+        {
+            'timestamp': metric.timestamp.isoformat(),
+            'cpu_percent': metric.cpu_percent,
+            'ram_used': metric.ram_used,
+            'ram_total': metric.ram_total,
+        }
+        for metric in data
+    ]
+
+    return JsonResponse(response_data, safe=False)
+
+
+
 def kpi_summary(request):
+    host = request.GET.get('host')
     http_count = MonitoredWebsite.objects.count()
     ssh_count = SSHMetric.objects.values('host').distinct().count()
     active_services = http_count + ssh_count
 
-    recent_ssh = SSHMetric.objects.order_by('-timestamp')[:20]
-    cpu_avg = recent_ssh.aggregate(avg_cpu=Avg('cpu_percent'))['avg_cpu'] or 0.0
-    ram_avg = recent_ssh.aggregate(avg_ram=Avg('ram_used'))['avg_ram'] or 0
+    cpu_avg = 0.0
+    ram_avg = 0
+    if host:
+        recent_ssh = SSHMetric.objects.filter(host__hostname=host).order_by('-timestamp')[:20]
+        cpu_avg = recent_ssh.aggregate(avg_cpu=Avg('cpu_percent'))['avg_cpu'] or 0.0
+        ram_avg = recent_ssh.aggregate(avg_ram=Avg('ram_used'))['avg_ram'] or 0
+    else:
+        recent_ssh = SSHMetric.objects.order_by('-timestamp')[:20]
+        cpu_avg = recent_ssh.aggregate(avg_cpu=Avg('cpu_percent'))['avg_cpu'] or 0.0
+        ram_avg = recent_ssh.aggregate(avg_ram=Avg('ram_used'))['avg_ram'] or 0
 
     last_24h = timezone.now() - timedelta(hours=24)
     uptime_checks = MonitoringResult.objects.filter(timestamp__gte=last_24h)
@@ -152,6 +232,7 @@ def kpi_summary(request):
         "ram_avg": int(ram_avg),
         "uptime_avg": round(uptime_avg, 1),
     })
+
 
 def service_statuses(request):
     now = timezone.now()
@@ -186,35 +267,6 @@ def alerts_api(request):
     return JsonResponse(list(alerts), safe=False)
 
 
-# --------------------------
-# LOGIKA STATUSU USŁUGI
-# --------------------------
-
-def evaluate_status_and_notify(website):
-    now = timezone.now()
-    since = now - timedelta(minutes=5)
-    checks = MonitoringResult.objects.filter(website=website, timestamp__gte=since)
-    if not checks.exists():
-        return
-
-    up_ratio = checks.filter(is_up=True).count() / checks.count()
-    avg_response = checks.aggregate(Avg("response_time"))["response_time__avg"] or 0
-
-    if up_ratio < 0.80 or avg_response > 1000:
-        current_status = "critical"
-    elif up_ratio < 0.95 or avg_response > 500:
-        current_status = "warning"
-    else:
-        current_status = "healthy"
-
-    if website.last_status != current_status:
-        Notification.objects.create(
-            service_name=website.name,
-            level=current_status if current_status != "healthy" else "info",
-            message=f"Status usługi {website.name} zmienił się na {current_status}"
-        )
-        website.last_status = current_status
-        website.save()
 
 
 

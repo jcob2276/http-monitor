@@ -1,4 +1,4 @@
-let currentTimeRange = '1 godz';
+let currentTimeRange = '5m';
 let selectedSite = null;
 
 // 🚨 Error Logging
@@ -17,7 +17,7 @@ function resetChart() {
 
 // 🔁 Load chart data (static)
 function loadChartData(websiteId) {
-    fetch(`/chart_data?website_id=${websiteId}&range=${currentTimeRange}`)
+    fetch(`/api/chart-data/?website_id=${websiteId}&range=${currentTimeRange}`)
         .then(response => response.json())
         .then(data => {
             if (window.responseChart) {
@@ -29,12 +29,16 @@ function loadChartData(websiteId) {
         });
 }
 
+
+
 // 🔌 WebSocket (dynamic 5m range only)
 const ws = new WebSocket("ws://" + window.location.host + "/ws/metrics/");
 ws.onmessage = function (event) {
     const data = JSON.parse(event.data);
-    if (selectedSite && data.website_id !== selectedSite) return;
+    console.log("WS METRIC:", data, "currentTimeRange:", currentTimeRange, "selectedSite:", selectedSite);
+
     if (currentTimeRange !== "5m") return;
+    if (selectedSite && parseInt(data.website_id) !== parseInt(selectedSite)) return;
 
     if (window.responseChart) {
         if (window.responseChart.data.labels.length > 50) {
@@ -46,6 +50,33 @@ ws.onmessage = function (event) {
         window.responseChart.update();
     }
 };
+
+
+document.querySelectorAll(".chart-range-btn").forEach(btn => {
+    btn.addEventListener("click", function () {
+        document.querySelectorAll(".chart-range-btn").forEach(b => b.classList.remove("active"));
+        this.classList.add("active");
+
+        const range = this.dataset.range;
+        window.currentTimeRange = range;
+
+        // 🔁 HTTP (WebSocket dla 5m, fetch dla innych)
+        if (selectedSite) {
+            resetChart();
+            loadChartData(selectedSite);
+        }
+
+        // 🔁 SSH (WebSocket działa tylko dla 5m)
+        if (range !== '5m') {
+            if (window.selectedHost) {
+                loadSSHChartData(window.selectedHost, range);
+            }
+        }
+    });
+});
+
+
+
 
 // 🧠 KPI Update
 function updateKPI() {
@@ -60,6 +91,20 @@ function updateKPI() {
         })
         .catch(err => console.error("❌ KPI error:", err));
 }
+
+function loadSSHChartData(host, range) {
+    fetch(`/api/ssh-chart-data/?host=${host}&range=${range}`)
+        .then(res => res.json())
+        .then(data => {
+            if (!window.sshChart) return;
+
+            window.sshChart.data.labels = data.labels;
+            window.sshChart.data.datasets[0].data = data.cpu;
+            window.sshChart.data.datasets[1].data = data.ram;
+            window.sshChart.update();
+        });
+}
+
 
 // 🚀 On Ready
 window.addEventListener("DOMContentLoaded", () => {
@@ -89,18 +134,7 @@ window.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    document.querySelectorAll(".chart-range-btn").forEach(btn => {
-        btn.addEventListener("click", function () {
-            document.querySelectorAll(".chart-range-btn").forEach(b => b.classList.remove("active"));
-            this.classList.add("active");
-            currentTimeRange = this.dataset.range;
-            if (selectedSite) {
-                resetChart();
-                loadChartData(selectedSite);
-            }
-        });
-    });
-
+    
     updateKPI();
     setInterval(updateKPI, 15000);
 });

@@ -128,6 +128,34 @@ function updateSSHChart(data) {
 }
 
 
+function refreshSSHChart(range) {
+    const selectedHost = document.getElementById('sshHostSelector').value;
+    fetch(`/api/ssh-chart-data/?host=${selectedHost}&range=${range}`)
+        .then(response => response.json())
+        .then(data => {
+            if (!window.sshChart) return;
+
+            console.log("🔁 refreshSSHChart", data);
+
+            window.sshChart.data.labels = data.labels;
+            window.sshChart.data.datasets[0].data = data.cpu;
+            window.sshChart.data.datasets[1].data = data.ram;
+
+            window.sshChart.update();
+        });
+}
+
+document.querySelectorAll('.time-range-btn').forEach(button => {
+    button.addEventListener('click', () => {
+        const range = button.getAttribute('data-range');
+        currentRange = range;
+
+        updateHTTPChart(range);
+        refreshSSHChart(range);  // ← DODAJ TO
+    });
+});
+
+
 
 // 🚀 Główna funkcja inicjalizacji
 function initializeCharts() {
@@ -136,4 +164,6 @@ function initializeCharts() {
     console.log("✅ Wykresy zainicjalizowane");
 }
 
-export { initializeCharts, updateSSHChart };
+// 👇 Zamiast `export` — przypisz do `window` (globalne API)
+window.initializeCharts = initializeCharts;
+window.updateSSHChart = updateSSHChart;

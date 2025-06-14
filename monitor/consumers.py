@@ -7,35 +7,20 @@ from asgiref.sync import sync_to_async
 from django.utils.timezone import now
 from channels.generic.websocket import AsyncWebsocketConsumer
 
-from .models import UptimeCheck, SSHHost
+from .models import MonitoringResult, SSHHost
 from .ssh_metrics import SSHMonitor
 
 
 class MetricsConsumer(AsyncWebsocketConsumer):
     async def connect(self):
+        await self.channel_layer.group_add("http_metrics_group", self.channel_name)
         await self.accept()
-        self.send_task = asyncio.create_task(self.send_metrics())
 
     async def disconnect(self, close_code):
-        if hasattr(self, 'send_task'):
-            self.send_task.cancel()
+        await self.channel_layer.group_discard("http_metrics_group", self.channel_name)
 
-    async def send_metrics(self):
-        while True:
-            latest = await sync_to_async(
-                lambda: UptimeCheck.objects.select_related('website').order_by('-timestamp').first()
-            )()
-
-            data = {
-                "timestamp": latest.timestamp.strftime('%H:%M:%S') if latest else now().strftime('%H:%M:%S'),
-                "response_time": latest.response_time if latest else 0,
-                "is_up": latest.is_up if latest else False,
-                "url": latest.website.url if latest else "brak danych",
-                "website_id": latest.website.id if latest else None
-            }
-
-            await self.send(text_data=json.dumps(data))
-            await asyncio.sleep(5)
+    async def send_http_metrics(self, event):
+        await self.send(text_data=json.dumps(event["data"]))
 
 
 class SSHMetricsConsumer(AsyncWebsocketConsumer):

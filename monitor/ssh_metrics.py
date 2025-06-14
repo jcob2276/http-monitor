@@ -1,5 +1,5 @@
-# monitor/ssh_metrics.py
-
+import paramiko
+from .models import SSHHost, SSHMetric
 import paramiko
 from .models import SSHHost, SSHMetric
 
@@ -38,25 +38,27 @@ class SSHMonitor:
     def run_command(self, command):
         stdin, stdout, stderr = self.client.exec_command(command)
         return stdout.read().decode().strip()
-
+    
     def collect_metrics(self):
-        """
-        Zbiera CPU i RAM zdalnej maszyny.
-        """
         if not self.client:
             self.connect()
-
         commands = {
-            'cpu_percent': "top -bn1 | grep '%Cpu' | awk '{print 100 - $8}'",
+            'cpu_percent': "top -bn1 | grep 'Cpu(s)' | sed 's/,/\\n/g' | grep 'id' | awk '{print 100 - $1}'",
             'ram_total': "grep MemTotal /proc/meminfo | awk '{print int($2/1024)}'",
             'ram_used': "free -m | awk '/Mem:/ {print $3}'",
         }
-
+        results = {}
         try:
-            return {
-                key: float(self.run_command(cmd)) if "cpu" in key else int(self.run_command(cmd))
-                for key, cmd in commands.items()
-            }
+            for key, cmd in commands.items():
+                output = self.run_command(cmd)
+                print(f"[DEBUG] {self.host} | {key}: '{output}'")
+                if not output:
+                    raise ValueError(f"Brak wyniku dla {key}")
+                if "cpu" in key:
+                    results[key] = float(output)
+                else:
+                    results[key] = int(output)
+            return results
         except Exception as e:
             print(f"❌ Błąd zbierania metryk z {self.host}: {e}")
             return {'cpu_percent': 0.0, 'ram_total': 0, 'ram_used': 0}
@@ -76,7 +78,7 @@ def collect_and_store_metrics():
         ssh = SSHMonitor(
             host=host_obj.hostname,
             username=host_obj.username,
-            password=host_obj.password  # albo key_path jeśli używasz klucza
+            password=host_obj.password  
         )
 
         try:
